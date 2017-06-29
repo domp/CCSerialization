@@ -29,6 +29,5 @@ The same thing also works for value vectors by calling `getStringFromValueVector
 
 **Limitations:**
 
-* JSON for Modern C++ which is used for serialization uses certain `std` functions that are not available when compiling for android using the default cocos2d-x `APP_STL gnustl_static`. Switching to c++_static is needed in order to successfully compile for android.
 * All value types of CCValue are supported, except for int key maps. This is because there is no way to determine if a map is a value map or an int key map while deserializing since both could have only integers as keys.
 

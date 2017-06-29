@@ -19,89 +19,68 @@ SOFTWARE.
 ****************************************************************************/
 
 #include "CCSerialization.h"
-#include "json.hpp"
-
-using json = nlohmann::json;
+#include "json/document.h"
+#include "json/writer.h"
 
 NS_CC_BEGIN
 
 namespace StringUtils
 {
 
-void addValueToJSON(const std::string &key, const Value &value, json &j)
+void addValueToJSON(const std::string &key, const Value &value, rapidjson::Document &d, rapidjson::Document::AllocatorType &allocator)
 {
-    if (value.isNull())
-    {
-        j.emplace(key, nullptr);
-    }
-    else
+    rapidjson::Value jsonValue;
+    if (!value.isNull())
     {
         const Value::Type type = value.getType();
         if (type == Value::Type::VECTOR)
         {
-            json jsonVector;
+            rapidjson::Document documentArray;
+            documentArray.SetArray();
+            
             for (Value vectorValue : value.asValueVector())
             {
-                addValueToJSON("", vectorValue, jsonVector);
+                addValueToJSON("", vectorValue, documentArray, allocator);
             }
             
-            if (key.length() == 0)
-            {
-                j.push_back(jsonVector);
-            }
-            else
-            {
-                j.emplace(key, jsonVector);
-            }
+            jsonValue = documentArray.Move();
         }
         else if (type == Value::Type::MAP)
         {
-            json jsonMap;
+            rapidjson::Document documentObject;
+            documentObject.SetObject();
+            
             for (std::pair<std::string, Value> pair : value.asValueMap())
             {
-                addValueToJSON(pair.first, pair.second, jsonMap);
+                addValueToJSON(pair.first, pair.second, documentObject, allocator);
             }
             
-            if (key.length() == 0)
-            {
-                j.push_back(jsonMap);
-            }
-            else
-            {
-                j.emplace(key, jsonMap);
-            }
+            jsonValue = documentObject.Move();
         }
         else
         {
             switch (type)
             {
                 case Value::Type::BYTE:
-                    if (key.length() == 0) j.push_back(value.asByte());
-                    else j.emplace(key, value.asByte());
+                    jsonValue = value.asByte();
                     break;
                 case Value::Type::INTEGER:
-                    if (key.length() == 0) j.push_back(value.asInt());
-                    else j.emplace(key, value.asInt());
+                    jsonValue = value.asInt();
                     break;
                 case Value::Type::UNSIGNED:
-                    if (key.length() == 0) j.push_back(value.asUnsignedInt());
-                    else j.emplace(key, value.asUnsignedInt());
+                    jsonValue = value.asUnsignedInt();
                     break;
                 case Value::Type::FLOAT:
-                    if (key.length() == 0) j.push_back(value.asFloat());
-                    else j.emplace(key, value.asFloat());
+                    jsonValue = value.asFloat();
                     break;
                 case Value::Type::DOUBLE:
-                    if (key.length() == 0) j.push_back(value.asDouble());
-                    else j.emplace(key, value.asDouble());
+                    jsonValue = value.asDouble();
                     break;
                 case Value::Type::BOOLEAN:
-                    if (key.length() == 0) j.push_back(value.asBool());
-                    else j.emplace(key, value.asBool());
+                    jsonValue = value.asBool();
                     break;
                 case Value::Type::STRING:
-                    if (key.length() == 0) j.push_back(value.asString());
-                    else j.emplace(key, value.asString());
+                    jsonValue = rapidjson::Value(value.asString().c_str(), allocator);
                     break;
                 default:
                     CCASSERT(false, "Value type not supported");
@@ -109,90 +88,115 @@ void addValueToJSON(const std::string &key, const Value &value, json &j)
             }
         }
     }
+    
+    if (key.length() == 0)
+    {
+        d.PushBack(jsonValue, allocator);
+    }
+    else
+    {
+        d.AddMember(rapidjson::Value(key.c_str(), allocator), jsonValue, allocator);
+    }
 }
 
 std::string getStringFromValueMap(const ValueMap &map)
 {
-    json j;
+    rapidjson::Document d;
+    d.SetObject();
+    
     for (std::pair<std::string, Value> pair : map)
     {
-        addValueToJSON(pair.first, pair.second, j);
+        addValueToJSON(pair.first, pair.second, d, d.GetAllocator());
     }
     
-    return j.dump();
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    d.Accept(writer);
+    
+    return buffer.GetString();
 }
 
 std::string getStringFromValueVector(const ValueVector &vector)
 {
-    json j;
+    rapidjson::Document d;
+    d.SetArray();
+    
     for (Value value : vector)
     {
-        addValueToJSON("", value, j);
+        addValueToJSON("", value, d, d.GetAllocator());
     }
     
-    return j.dump();
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    d.Accept(writer);
+    
+    return buffer.GetString();
 }
 
-Value getValueFromJSON(json &j)
+Value getValueFromJSON(rapidjson::Value &v, rapidjson::Document::AllocatorType &allocator)
 {
-    if (j.is_null())
+    if (v.IsNull())
     {
         return Value::Null;
     }
-    else if (j.is_object())
+    else if (v.IsObject())
     {
         ValueMap map;
-        for (json::iterator it = j.begin(); it != j.end(); ++it)
+        for (rapidjson::Value::ConstMemberIterator it = v.MemberBegin(); it != v.MemberEnd(); ++it)
         {
-            const std::string key = it.key();
-            json element = j.at(key);
-            Value mapValue = getValueFromJSON(element);
+            const std::string key = it->name.GetString();
+            rapidjson::Value value = rapidjson::Value(it->value, allocator);
+            Value mapValue = getValueFromJSON(value, allocator);
             
             map.emplace(key, mapValue);
         }
         
         return Value(map);
     }
-    else if (j.is_array())
+    else if (v.IsArray())
     {
         ValueVector vector;
-        for (json element : j)
+        for (rapidjson::Value::ConstValueIterator it = v.Begin(); it != v.End(); ++it)
         {
-            Value vectorValue = getValueFromJSON(element);
+            rapidjson::Value value = rapidjson::Value(*it, allocator);
+            Value vectorValue = getValueFromJSON(value, allocator);
+            
             vector.push_back(vectorValue);
         }
         
         return Value(vector);
     }
-    else if (j.is_number_integer())
+    else if (v.IsInt())
     {
-        return Value(j.get<int>());
+        return Value(v.GetInt());
     }
-    else if (j.is_number_unsigned())
+    else if (v.IsUint())
     {
-        return Value(j.get<unsigned int>());
+        return Value(v.GetUint());
     }
-    else if (j.is_number_float())
+    else if (v.IsFloat())
     {
-        return Value(j.get<float>());
+        return Value(v.GetFloat());
     }
-    else if (j.is_boolean())
+    else if (v.IsBool())
     {
-        return Value(j.get<bool>());
+        return Value(v.GetBool());
     }
-    else if (j.is_string())
+    else if (v.IsString())
     {
-        return Value(j.get<std::string>());
+        return Value(v.GetString());
     }
     
-    CCASSERT(false, "Unable to convert json object to value");
+    CCASSERT(false, "Unable to convert json value to cocos2d value");
     return Value::Null;
 }
 
 ValueMap getValueMapFromString(const std::string string)
 {
-    json j = json::parse(string);
-    Value value = getValueFromJSON(j);
+    rapidjson::Document document;
+    document.Parse(string.c_str());
+    
+    Value value = getValueFromJSON(document, document.GetAllocator());
     CCASSERT(value.getType() == Value::Type::MAP, "Unable to deserialize string to value map");
     
     return value.asValueMap();
@@ -200,8 +204,10 @@ ValueMap getValueMapFromString(const std::string string)
 
 ValueVector getValueVectorFromString(const std::string string)
 {
-    json j = json::parse(string);
-    Value value = getValueFromJSON(j);
+    rapidjson::Document document;
+    document.Parse(string.c_str());
+    
+    Value value = getValueFromJSON(document, document.GetAllocator());
     CCASSERT(value.getType() == Value::Type::VECTOR, "Unable to deserialize string to value vector");
     
     return value.asValueVector();
