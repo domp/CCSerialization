@@ -38,7 +38,7 @@ void addValueToJSON(const std::string &key, const Value &value, rapidjson::Docum
             rapidjson::Document documentArray;
             documentArray.SetArray();
             
-            for (Value vectorValue : value.asValueVector())
+            for (const Value &vectorValue : value.asValueVector())
             {
                 addValueToJSON("", vectorValue, documentArray, allocator);
             }
@@ -50,7 +50,7 @@ void addValueToJSON(const std::string &key, const Value &value, rapidjson::Docum
             rapidjson::Document documentObject;
             documentObject.SetObject();
             
-            for (std::pair<std::string, Value> pair : value.asValueMap())
+            for (const std::pair<std::string, Value> &pair : value.asValueMap())
             {
                 addValueToJSON(pair.first, pair.second, documentObject, allocator);
             }
@@ -104,7 +104,7 @@ std::string getStringFromValueMap(const ValueMap &map)
     rapidjson::Document d;
     d.SetObject();
     
-    for (std::pair<std::string, Value> pair : map)
+    for (const std::pair<std::string, Value> &pair : map)
     {
         addValueToJSON(pair.first, pair.second, d, d.GetAllocator());
     }
@@ -121,7 +121,7 @@ std::string getStringFromValueVector(const ValueVector &vector)
     rapidjson::Document d;
     d.SetArray();
     
-    for (Value value : vector)
+    for (const Value &value : vector)
     {
         addValueToJSON("", value, d, d.GetAllocator());
     }
