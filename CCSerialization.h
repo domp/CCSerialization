@@ -30,8 +30,8 @@ namespace StringUtils
     std::string getStringFromValueMap(const ValueMap &map);
     std::string getStringFromValueVector(const ValueVector &vector);
     
-    ValueMap getValueMapFromString(const std::string string);
-    ValueVector getValueVectorFromString(const std::string string);
+    ValueMap getValueMapFromString(const std::string &string);
+    ValueVector getValueVectorFromString(const std::string &string);
 }
 
 NS_CC_END

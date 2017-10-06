@@ -89,7 +89,7 @@ void addValueToJSON(const std::string &key, const Value &value, rapidjson::Docum
         }
     }
     
-    if (key.length() == 0)
+    if (key.empty())
     {
         d.PushBack(jsonValue, allocator);
     }
@@ -191,7 +191,7 @@ Value getValueFromJSON(rapidjson::Value &v, rapidjson::Document::AllocatorType &
     return Value::Null;
 }
 
-ValueMap getValueMapFromString(const std::string string)
+ValueMap getValueMapFromString(const std::string &string)
 {
     rapidjson::Document document;
     document.Parse(string.c_str());
@@ -202,7 +202,7 @@ ValueMap getValueMapFromString(const std::string string)
     return value.asValueMap();
 }
 
-ValueVector getValueVectorFromString(const std::string string)
+ValueVector getValueVectorFromString(const std::string &string)
 {
     rapidjson::Document document;
     document.Parse(string.c_str());
