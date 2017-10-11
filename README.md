@@ -1,6 +1,6 @@
 # CCSerialization
 
-**Compatible with cocos2d-x v3.15**
+**Tested with cocos2d-x v3.15 & v3.16**
 
 Simply add the files to your project and include the header:
 
